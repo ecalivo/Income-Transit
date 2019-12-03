@@ -9,6 +9,8 @@
 
 library(sf)
 library(fs)
+library(gt)
+library(broom)
 library(shiny)
 library(rgdal)
 library(rvest)
@@ -24,20 +26,20 @@ ui <- fluidPage(theme = shinytheme("darkly"),
                 navbarPage("Public Transportation & Income in the San Francisco Bay Area",
                            tabPanel("About", HTML('<center><img src = "https://upload.wikimedia.org/wikipedia/commons/d/d7/San_Francisco_Bay_Bridge_Western_Span_at_night.jpg",
                                                   width = "100%", height = "100%"></center>'),
-                                    p("I grew up in San Jose, at the southern end of the San Francisco Bay Area. Growing up, both of my parents worked for public transportation companies, which meant
-                                      that I became familiar with taking public buses and trains pretty early on in my childhood. While I thought the idea of intricate networks of interconnectedness were
-                                      fascinating and exciting, I quickly learned that many people did not feel the same way. Instead, public transportation was thought of as inefficient, unsanitary, and 
-                                      associated with poverty and low socioeconomic status."),
-                                    p("This is a view that is commonly taken across the United States, and especially in the car-happy state of California. However, it is one that is rapidly changing. 
-                                      Given the rapid population growth in the area combined with movements to exurbs and towns on the Bay's periphery, one of these areas is public transportation. A Bay 
-                                      Area that moves faster and more efficiently is in the interest of all residents, providing a path towards decreased dependencies on cars, greater regional cooperation in 
-                                      one of the nation's most important megalopolises, and encouraging urban design that is heavily focused on walkability, productive interpersonal interaction, and environmental sustainability."),
-                                    p("This is an issue that I've thought about almost my entire life: both of my parents worked for public transit agencies during my childhood, giving me a somewhat unique insight into the ways that 
-                                      certain populations rely on transit to get around. Here at Harvard, I have pursued urban studies through the Government and History of Art and Architecture departments, allowing me to learn more 
-                                      about how urban infrastructure, including public transit, shape the way that people live, work, and thrive."),
-                                    p("In order to improve these infrastructures, we have to know how they currently work -- and don't work. Enter this project, which was created by Emmanuel Calivo (eacalivo@gmail.com). I took data from 
-                                      the open data portal for the Santa Clara Valley Transportation Authority (VTA), as well as the government of Santa Clara County and the Census Brueau, in order to see if there is a relationship between
-                                      access to public transit and median income levels.")
+                                    p("The San Francisco Bay Area has changed dramatically over the past few decades. As America’s preeminent center for information technology, it has been an incubator for many of the world’s most 
+                                      important and innovative tech companies and has welcomed many thousands of new, high-skilled workers to fuel their growth and success. Consequently, the area’s economy is booming: housing prices are 
+                                      some of the highest in the nation, and median household income is well above the national and state averages. However, while some have prospered, many more have seen difficulties: as the cost of living in the 
+                                      major urban centers and their close suburbs has skyrocketed, many of these middle-to-lower class residents have moved to more affordable exurbs on the region’s periphery, leading to longer commute times and 
+                                      high rates of traffic congestion."),
+                                    p("Due to these changes, public transportation development is a hot topic in the Bay Area as policymakers, businesses, and residents seek improved methods of moving across an increasingly interconnected region. 
+                                      Bay Area Rapid Transit (BART) is currently extending its service south to Silicon Valley, while Facebook has floated the renovation of old and unused transit infrastructure in order to create another flow of 
+                                      transport across the Bay. But who do these systems serve? Do the rich and poor alike have access to the Bay’s extensive public transportation network? More specifically, is there a relationship between 
+                                      household income and access to public transit?"),
+                                    p("These are issues I’ve thought about my whole life. As a native resident of Silicon Valley and the child of two public transit employees, I’ve been acquainted with many of these networks since childhood, and 
+                                      I’m very interested in the policies that help people across my beloved home region connect, commute, travel, and explore. At Harvard, I’ve pursued urban studies through both the Government and History of 
+                                      Art and Architecture departments to learn more about how urban infrastructure allows people to live, work, and thrive."),
+                                    p("These data have been collected from several sources, including the Metropolitan Transportation Commission and the US Census Bureau via Wikipedia. The MTC’s data includes all the major Bay Area transit systems, 
+                                      including VTA, Muni, BART, and CalTrain. For questions, please reach out at ecalivo@college.harvard.edu.")
                                     ),
                            tabPanel("Visualization",
                                     h2("Interactive Map of Bay Area Transit Stops"),
@@ -45,7 +47,7 @@ ui <- fluidPage(theme = shinytheme("darkly"),
                                        Zoom in to see exact stop locations."),
                                     leafletOutput("map", height = 600)
                            ),
-                           tabPanel("Data & Model",
+                           tabPanel("Graphic Data",
                                     sidebarLayout(
                                       sidebarPanel(
                                                    selectInput("x",
@@ -56,7 +58,16 @@ ui <- fluidPage(theme = shinytheme("darkly"),
                                                    checkboxInput("county",
                                                                  label = "Show Stops By County?",
                                                                  value = FALSE)),
-                                      mainPanel(plotlyOutput("plots"))))))
+                                      mainPanel(plotlyOutput("plots"))), 
+                                    tags$br(),
+                                    p("These graphs allow us to look at transit access and income from several different angles. First, note that I decided to account for population and alter the data slightly for the adjusted graphs: since it seems 
+                                      clear that the largest cities in the Bay Area would have the most transit stops by virtue of their population and centrality, I decided to divide all raw stop counts by their municipal populations in order to get a 
+                                      more representative view. However, I also included the non-adjusted data, which can be examined by choosing it in the drop down menu."),
+                                    p("I further allow for us to look at the data by county by checking the box. If we leave the box unchecked and look at data for the Bay Area as a whole, we can see that by both the adjusted and non-adjusted metrics, there 
+                                      appears to be a negative correlation between transit access and median household income; that is to say, as median household income goes up, transit access tends to decline. However, if we look by county, this is not the 
+                                      case: each line of best fit has a different slope and thus a different correlation coefficient. This allows us to look at differences by county: for example, when looking at the adjusted model, it is clear that Alameda and Contra 
+                                      Costa Counties, which are the traditional industrial bases of the Bay Area, have much starker negative correlations than the other counties, while Santa Clara and San Mateo Counties, the center of Silicon Valley, even has a weak positive correlation. 
+                                      (Note that San Francisco is a consolidated city-county and thus has only a single point and no line of best fit.)"))))
 
 # Define server logic required to draw a histogram
 server <- function(input, output, session) {
@@ -90,15 +101,15 @@ server <- function(input, output, session) {
       
       if(input$x == "Adjusted") {
         the_adjusted_income_plot <- the_table %>% 
-          ggplot(aes(x = adjusted, y = med_income, color = county_ies_note_2)) +
+          ggplot(aes(y = adjusted, x = med_income, color = county_ies_note_2)) +
           geom_point(alpha = 0.5) +
           geom_smooth(method = "lm", se = FALSE) +
-          scale_x_log10() +
+          scale_y_log10() +
           theme(legend.position = "right") +
-          labs(title = "Median Household Income Based on Access to Public Transit, Adjusted",
+          labs(title = "Adjusted Access to Public Transit Based on Median Household Income",
                subtitle = "Adjustment = total transit stops in a municipality divided by population",
-               x = "Adjusted Access to Public Transportation (Log Scale)",
-               y = "Median Household Income",
+               y = "Adjusted Access to Public Transportation (Log)",
+               x = "Median Household Income",
                color = "County") 
         the_adjusted_income_plotly <- ggplotly(the_adjusted_income_plot)
         the_adjusted_income_plotly
@@ -108,15 +119,15 @@ server <- function(input, output, session) {
         
       {
         the_nonadjusted_income_plot <- the_table %>% 
-          ggplot(aes(x = n, y = med_income, color = county_ies_note_2)) +
+          ggplot(aes(y = n, x = med_income, color = county_ies_note_2)) +
           geom_point(alpha = 0.5) +
           geom_smooth(method = "lm", se = FALSE) +
-          scale_x_log10() +
+          scale_y_log10() +
           theme(legend.position = "right") +
-          labs(title = "Median Household Income Based on Transit Stop Numbers",
+          labs(title = "Transit Stop Numbers Based on Median Household Income",
                subtitle = "Not adjusted for population",
-               x = "Number of Rapid Transit Stops in a Municipality",
-               y = "Median Household Income",
+               y = "Number of Rapid Transit Stops in a Municipality",
+               x = "Median Household Income",
                color = "County")
         the_nonadjusted_income_plotly <- ggplotly(the_nonadjusted_income_plot)
         the_nonadjusted_income_plotly
@@ -126,28 +137,28 @@ server <- function(input, output, session) {
     else {
       if(input$x == "Adjusted") {
         the_adjusted_income_plot_2 <- the_table %>% 
-          ggplot(aes(x = adjusted, y = med_income)) +
+          ggplot(aes(y = adjusted, x = med_income)) +
           geom_point(alpha = 0.5) +
           geom_smooth(method = "lm", se = FALSE) +
-          scale_x_log10() +
-          labs(title = "Median Household Income Based on Access to Public Transit, Adjusted",
+          scale_y_log10() +
+          labs(title = "Adjusted Access to Public Transit Based on Median Household Income",
                subtitle = "Adjustment = total transit stops in a municipality divided by population",
-               x = "Adjusted Access to Public Transportation (Log Scale)",
-               y = "Median Household Income") 
+               y = "Adjusted Access to Public Transportation (Log Scale)",
+               x = "Median Household Income") 
         the_adjusted_income_plotly_2 <- ggplotly(the_adjusted_income_plot_2)
         the_adjusted_income_plotly_2
       }
       else
         {
         the_nonadjusted_income_plot <- the_table %>% 
-          ggplot(aes(x = n, y = med_income)) +
+          ggplot(aes(y = n, x = med_income)) +
           geom_point(alpha = 0.5) +
           geom_smooth(method = "lm", se = FALSE) +
-          scale_x_log10() +
-          labs(title = "Median Household Income Based on Transit Stop Numbers",
+          scale_y_log10() +
+          labs(title = "Transit Stop Numbers Based on Median Household Income",
                subtitle = "Not adjusted for population",
-               x = "Number of Rapid Transit Stops in a Municipality",
-               y = "Median Household Income")
+               y = "Number of Rapid Transit Stops in a Municipality",
+               x = "Median Household Income")
         the_nonadjusted_income_plotly <- ggplotly(the_nonadjusted_income_plot)
         the_nonadjusted_income_plotly
       }
